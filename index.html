@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arcane Rampage: 10 Realms</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #030407;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        #game-wrapper {
+            position: relative;
+            width: 960px;
+            height: 540px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #game-container {
+            position: relative;
+            width: 960px;
+            height: 540px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 230, 118, 0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: #000;
+            transform-origin: center center;
+        }
+        canvas {
+            display: block;
+            width: 960px;
+            height: 540px;
+        }
+
+        /* HUD Overlay */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 12px;
+            z-index: 5;
+        }
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+            gap: 10px;
+        }
+        .hud-card {
+            background: rgba(10, 14, 22, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 8px;
+            min-width: 230px;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .bar-container {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 4px;
+            padding: 1px;
+            margin-top: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.15s ease-out;
+            box-shadow: 0 0 8px currentColor;
+        }
+        #player-health { background: linear-gradient(90deg, #00e676, #76ff03); color: #00e676; }
+        #player-mana { background: linear-gradient(90deg, #00b0ff, #00e5ff); color: #00b0ff; }
+        #player-xp { background: linear-gradient(90deg, #e040fb, #7c4dff); color: #e040fb; }
+        #boss-health { background: linear-gradient(90deg, #ff1744, #ff5252); color: #ff1744; width: 100%; }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            color: #b0bec5;
+        }
+        
+        .boss-hud {
+            width: 36%;
+            margin: 0 auto;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .boss-hud.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .boss-title {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #ff5252;
+        }
+
+        .hud-actions {
+            display: flex;
+            gap: 6px;
+            pointer-events: auto;
+        }
+        .btn-hud {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 6px 10px;
+            min-height: 36px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+        .btn-hud:active {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(0.95);
+        }
+
+        #spell-dock {
+            position: absolute;
+            bottom: 95px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        .spell-slot {
+            width: 50px;
+            height: 50px;
+            background: rgba(10, 14, 22, 0.88);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #fff;
+            position: relative;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+        }
+        .spell-slot:active {
+            transform: scale(0.92);
+        }
+        .spell-slot .key-bind {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            font-size: 8px;
+            font-weight: 900;
+            color: #80d8ff;
+        }
+        .spell-slot .mana-cost {
+            position: absolute;
+            bottom: 2px;
+            font-size: 7.5px;
+            font-weight: 800;
+            color: #40c4ff;
+        }
+
+        #touch-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 16px;
+            pointer-events: auto;
+            z-index: 12;
+        }
+        .touch-group {
+            display: flex;
+            gap: 10px;
+        }
+        .touch-btn {
+            width: 76px;
+            height: 76px;
+            min-width: 76px;
+            min-height: 76px;
+            background: rgba(18, 26, 38, 0.82);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 22px;
+            color: #fff;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+            transition: background 0.1s, transform 0.1s;
+        }
+        .touch-btn .btn-sublabel {
+            font-size: 7.5px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 1px;
+        }
+        .touch-btn:active {
+            background: rgba(255, 255, 255, 0.35);
+            transform: scale(0.92);
+        }
+        .touch-btn-action {
+            background: rgba(255, 23, 68, 0.5);
+            border-color: rgba(255, 23, 68, 0.8);
+        }
+        .touch-btn-magic {
+            background: rgba(0, 176, 255, 0.5);
+            border-color: rgba(0, 176, 255, 0.8);
+        }
+
+        /* Screens & Overlays */
+        .screen-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 7, 12, 0.94);
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            padding: 24px;
+            text-align: center;
+        }
+        .screen-overlay.hidden {
+            display: none;
+        }
+        .game-logo {
+            font-size: 40px;
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, #00e676, #00b0ff, #e040fb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .btn-main {
+            background: linear-gradient(135deg, #00e676, #00b0ff);
+            border: none;
+            color: #000;
+            font-size: 15px;
+            font-weight: 900;
+            min-height: 48px;
+            padding: 12px 38px;
+            border-radius: 40px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 10px 30px rgba(0, 230, 118, 0.3);
+            transition: all 0.2s ease;
+            margin-top: 14px;
+            pointer-events: auto;
+        }
+        .btn-main:active {
+            transform: scale(0.95);
+        }
+
+        /* Expanded Skill Tree Grid */
+        .skill-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 820px;
+            margin: 16px 0;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+        .skill-card {
+            background: rgba(20, 28, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 12px 10px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .skill-card:hover {
+            border-color: #00e676;
+            transform: translateY(-2px);
+        }
+        .skill-icon { font-size: 24px; margin-bottom: 4px; }
+        .skill-name { font-size: 12px; font-weight: 800; color: #fff; }
+        .skill-desc { font-size: 10px; color: #90a4ae; margin-top: 4px; line-height: 1.25; }
+        .skill-cost { font-size: 9.5px; font-weight: 800; color: #ffca28; margin-top: 6px; }
+
+        /* Countdown Overlay */
+        #countdown-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 15;
+            pointer-events: none;
+        }
+        .countdown-text {
+            font-size: 110px;
+            font-weight: 900;
+            font-style: italic;
+            color: #00e676;
+            text-shadow: 0 0 30px rgba(0, 230, 118, 0.8), 0 0 60px rgba(0, 176, 255, 0.5);
+            animation: pulseText 0.8s infinite alternate;
+        }
+        @keyframes pulseText {
+            0% { transform: scale(0.85); opacity: 0.6; }
+            100% { transform: scale(1.15); opacity: 1; }
+        }
+
+        @media (min-width: 1025px) {
+            #touch-controls { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="game-container">
+        <canvas id="gameCanvas" width="960" height="540"></canvas>
+        
+        <div id="ui-overlay">
+            <div class="hud-top">
+                <div class="hud-card">
+                    <div class="stat-row">
+                        <span>STAGE <span id="lbl-stage" style="color: #00e5ff;">1/10</span></span>
+                        <span>LVL <span id="lbl-level" style="color: #ffca28;">1</span></span>
+                        <span><span id="lbl-weapon" style="color: #00e676;">Arcane Blade</span></span>
+                    </div>
+                    <div class="bar-container">
+                        <div id="player-health" class="bar-fill" style="width: 100%;"></div>
+                    </div>
+                    <div class="bar-container">
+                        <div id="player-mana" class="bar-fill" style="width: 100%;"></div>
+                    </div>
+                    <div class="bar-container">
+                        <div id="player-xp" class="bar-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="stat-row" style="margin-top: 4px;">
+                        <span id="lbl-distance" style="color: #00e676;">PROGRESS: 1500m</span>
+                        <span id="lbl-sp-avail" style="color: #e040fb;">SP: 0</span>
+                    </div>
+                </div>
+
+                <div id="boss-hud" class="boss-hud hud-card">
+                    <div id="boss-name" class="boss-title">STAGE BOSS</div>
+                    <div class="bar-container">
+                        <div id="boss-health" class="bar-fill"></div>
+                    </div>
+                </div>
+
+                <div class="hud-actions">
+                    <button id="btn-audio" class="btn-hud" style="border-color: #80d8ff; color: #80d8ff;">Audio: ON</button>
+                    <button id="btn-pause" class="btn-hud" style="border-color: #ffca28; color: #ffca28;">Pause (P)</button>
+                    <button id="btn-skills" class="btn-hud" style="border-color: #e040fb; color: #e040fb;">Skills</button>
+                    <button id="fullscreen-btn" class="btn-hud">Fullscreen</button>
+                </div>
+            </div>
+
+            <div id="spell-dock">
+                <div class="spell-slot" onclick="castSpell(1)"><span class="key-bind">1</span>🔥<span class="mana-cost">20MP</span></div>
+                <div class="spell-slot" onclick="castSpell(2)"><span class="key-bind">2</span>❄️<span class="mana-cost">35MP</span></div>
+                <div class="spell-slot" onclick="castSpell(3)"><span class="key-bind">3</span>⚡<span class="mana-cost">50MP</span></div>
+            </div>
+
+            <div id="touch-controls">
+                <div class="touch-group">
+                    <div class="touch-btn" id="btn-left">◄<span class="btn-sublabel">LEFT</span></div>
+                    <div class="touch-btn" id="btn-right">►<span class="btn-sublabel">RIGHT</span></div>
+                </div>
+                <div class="touch-group">
+                    <div class="touch-btn touch-btn-magic" id="btn-spell">🔮<span class="btn-sublabel">SPELL</span></div>
+                    <div class="touch-btn" id="btn-jump">▲<span class="btn-sublabel">JUMP</span></div>
+                    <div class="touch-btn touch-btn-action" id="btn-attack">⚔<span class="btn-sublabel">ATTACK</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="countdown-overlay" class="hidden">
+            <div id="countdown-text" class="countdown-text">3</div>
+        </div>
+
+        <div id="start-screen" class="screen-overlay">
+            <div class="game-logo">Arcane Rampage</div>
+            <div style="font-size: 12px; color: #90a4ae; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px;">10 Realms of Primal Mastery</div>
+            <div style="font-size: 13px; color: #b0bec5; max-width: 500px; margin-bottom: 24px; line-height: 1.5;">
+                Fight through 10 distinct biomes, unlock elemental spell matrices, defeat unique Apex bosses, and claim the Arcane Apex title!
+            </div>
+            <button id="btn-start" class="btn-main">Begin Journey</button>
+        </div>
+
+        <div id="pause-screen" class="screen-overlay hidden">
+            <div class="game-logo" style="background: linear-gradient(135deg, #ffca28, #ff9100); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">EXPEDITION PAUSED</div>
+            <div style="font-size: 13px; color: #b0bec5; letter-spacing: 1px; margin-bottom: 24px;">Combat simulation suspended. Press P or tap resume to continue.</div>
+            <button id="btn-resume" class="btn-main" style="background: linear-gradient(135deg, #ffca28, #ff9100);">Resume Game</button>
+        </div>
+
+        <div id="stage-clear-screen" class="screen-overlay hidden">
+            <div class="game-logo" style="background: linear-gradient(135deg, #00e676, #76ff03); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">STAGE CLEARED</div>
+            <div id="stage-clear-desc" style="font-size: 13px; color: #b0bec5; letter-spacing: 1px; margin-bottom: 24px;">Apex target defeated! Prepare for the next realm.</div>
+            <button id="btn-next-stage" class="btn-main">Continue to Next Area</button>
+        </div>
+
+        <div id="victory-screen" class="screen-overlay hidden">
+            <div class="game-logo" style="background: linear-gradient(135deg, #e040fb, #00e5ff, #76ff03); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">ULTIMATE APEX CHAMPION</div>
+            <div style="font-size: 13px; color: #b0bec5; letter-spacing: 1px; margin-bottom: 24px;">You have conquered all 10 Realms and defeated the Void God supreme boss!</div>
+            <button id="btn-victory-restart" class="btn-main">Play New Campaign</button>
+        </div>
+
+        <div id="defeat-screen" class="screen-overlay hidden">
+            <div class="game-logo" style="background: linear-gradient(135deg, #ff1744, #ff5252); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">EXPEDITION FAILED</div>
+            <div style="font-size: 13px; color: #b0bec5; letter-spacing: 1px; margin-bottom: 24px;">Your arcane shield dissipated under primal aggression.</div>
+            <button id="btn-restart" class="btn-main" style="background: linear-gradient(135deg, #ff1744, #ff5252); box-shadow: 0 10px 30px rgba(255, 23, 68, 0.4);">Try Stage Again</button>
+        </div>
+
+        <div id="skill-screen" class="screen-overlay hidden">
+            <div class="game-logo" style="font-size: 26px;">Expanded Skill Tree</div>
+            <div style="font-size: 12px; color: #e040fb; font-weight: 800;">Available Skill Points: <span id="skill-points-display">0</span></div>
+            
+            <div class="skill-grid">
+                <div class="skill-card" onclick="upgradeSkill('vitality')">
+                    <div class="skill-icon">❤️</div>
+                    <div class="skill-name">Vitality</div>
+                    <div class="skill-desc">+25 Max HP & baseline HP regen.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-vitality">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('mana')">
+                    <div class="skill-icon">💧</div>
+                    <div class="skill-name">Mana Flow</div>
+                    <div class="skill-desc">+30 Max Mana & faster MP recovery.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-mana">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('slash')">
+                    <div class="skill-icon">⚔️</div>
+                    <div class="skill-name">Arcane Edge</div>
+                    <div class="skill-desc">+15% Primary Melee Damage.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-slash">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('agility')">
+                    <div class="skill-icon">👟</div>
+                    <div class="skill-name">Agility</div>
+                    <div class="skill-desc">+10% Movement speed & jump power.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-agility">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('fireball')">
+                    <div class="skill-icon">🔥</div>
+                    <div class="skill-name">Ignite</div>
+                    <div class="skill-desc">Increases Fireball damage & splash radius.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-fireball">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('frost')">
+                    <div class="skill-icon">❄️</div>
+                    <div class="skill-name">Frost Nova</div>
+                    <div class="skill-desc">Increases Frost slow duration & damage.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-frost">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('lightning')">
+                    <div class="skill-icon">⚡</div>
+                    <div class="skill-name">Thunderbolt</div>
+                    <div class="skill-desc">+25% Lightning damage output.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-lightning">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('vampirism')">
+                    <div class="skill-icon">🦇</div>
+                    <div class="skill-name">Vampirism</div>
+                    <div class="skill-desc">Heal 5% of damage dealt to enemies.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-vampirism">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('crit')">
+                    <div class="skill-icon">💥</div>
+                    <div class="skill-name">Precision</div>
+                    <div class="skill-desc">+10% Critical Strike Chance (2x damage).</div>
+                    <div class="skill-cost">Lvl <span id="lvl-crit">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('armor')">
+                    <div class="skill-icon">🛡️</div>
+                    <div class="skill-name">Iron Shield</div>
+                    <div class="skill-desc">Reduces incoming damage by 10%.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-armor">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('cooldown')">
+                    <div class="skill-icon">⏳</div>
+                    <div class="skill-name">Haste</div>
+                    <div class="skill-desc">Reduces melee attack delay by 10%.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-cooldown">0</span></div>
+                </div>
+                <div class="skill-card" onclick="upgradeSkill('luck')">
+                    <div class="skill-icon">🍀</div>
+                    <div class="skill-name">Loot Hunter</div>
+                    <div class="skill-desc">Increases weapon drop rates by 15%.</div>
+                    <div class="skill-cost">Lvl <span id="lvl-luck">0</span></div>
+                </div>
+            </div>
+
+            <button id="btn-close-skills" class="btn-main" style="padding: 8px 28px; font-size: 13px;">Resume Expedition</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==========================================
+// 1. WEB AUDIO API SYNTHESIZER
+// ==========================================
+class SoundEngine {
+    constructor() {
+        this.ctx = null;
+        this.bgmGain = null;
+        this.sfxGain = null;
+        this.isMuted = false;
+        this.bgmInterval = null;
+        this.initialized = false;
+    }
+
+    init() {
+        if (this.initialized) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx();
+
+        this.sfxGain = this.ctx.createGain();
+        this.sfxGain.gain.value = 0.25;
+        this.sfxGain.connect(this.ctx.destination);
+
+        this.bgmGain = this.ctx.createGain();
+        this.bgmGain.gain.value = 0.1;
+        this.bgmGain.connect(this.ctx.destination);
+
+        this.initialized = true;
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+        this.startArcadeBGM();
+    }
+
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (this.bgmGain) this.bgmGain.gain.value = this.isMuted ? 0 : 0.1;
+        if (this.sfxGain) this.sfxGain.gain.value = this.isMuted ? 0 : 0.25;
+        const btn = document.getElementById('btn-audio');
+        if (btn) btn.innerText = `Audio: ${this.isMuted ? 'OFF' : 'ON'}`;
+    }
+
+    playSpellSound() {
+        if (!this.initialized || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(1100, now + 0.22);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.22);
+    }
+
+    playHitImpact() {
+        if (!this.initialized || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const oscGain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+
+        oscGain.gain.setValueAtTime(0.5, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+        osc.connect(oscGain);
+        oscGain.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.12);
+    }
+
+    playMeleeSound() {
+        if (!this.initialized || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+        osc.start(now);
+        osc.stop(now + 0.08);
+    }
+
+    startArcadeBGM() {
+        if (!this.initialized || this.bgmInterval) return;
+        const notes = [110, 110, 146.83, 130.81, 110, 110, 164.81, 146.83];
+        let step = 0;
+
+        this.bgmInterval = setInterval(() => {
+            if (this.isMuted || !this.initialized) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(notes[step], now);
+
+            gain.gain.setValueAtTime(0.06, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+            osc.connect(gain);
+            gain.connect(this.bgmGain);
+            osc.start(now);
+            osc.stop(now + 0.13);
+
+            step = (step + 1) % notes.length;
+        }, 160);
+    }
+}
+
+const audio = new SoundEngine();
+
+// ==========================================
+// 2. CORE GAME SYSTEM & SAVE ENGINE
+// ==========================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('game-container');
+
+const GRAVITY = 0.55;
+const CANVAS_WIDTH = 960;
+const CANVAS_HEIGHT = 540;
+const SAVE_KEY = "ARCANE_RAMPAGE_SAVE_DATA_V1";
+
+function resizeGame() {
+    const scale = Math.min(window.innerWidth / CANVAS_WIDTH, window.innerHeight / CANVAS_HEIGHT);
+    container.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', resizeGame);
+window.addEventListener('load', resizeGame);
+
+document.getElementById('fullscreen-btn').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+    else if (document.exitFullscreen) document.exitFullscreen();
+});
+
+const keys = { a: false, d: false, w: false, space: false, attack: false };
+
+window.addEventListener('keydown', (e) => {
+    audio.init();
+    if (e.key === 'p' || e.key === 'P') togglePause();
+    if (e.key === 'm' || e.key === 'M') audio.toggleMute();
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = true;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = true;
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.w = true;
+    if (e.key === ' ') keys.space = true;
+    if (e.key === 'f' || e.key === 'F' || e.key === 'j' || e.key === 'J') keys.attack = true;
+    if (e.key === '1') castSpell(1);
+    if (e.key === '2') castSpell(2);
+    if (e.key === '3') castSpell(3);
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = false;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = false;
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.w = false;
+    if (e.key === ' ') keys.space = false;
+    if (e.key === 'f' || e.key === 'F' || e.key === 'j' || e.key === 'J') keys.attack = false;
+});
+
+const bindTouch = (id, keyName) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const start = (e) => { e.preventDefault(); e.stopPropagation(); audio.init(); keys[keyName] = true; };
+    const end = (e) => { e.preventDefault(); e.stopPropagation(); keys[keyName] = false; };
+    el.addEventListener('touchstart', start, { passive: false });
+    el.addEventListener('touchend', end, { passive: false });
+};
+bindTouch('btn-left', 'a');
+bindTouch('btn-right', 'd');
+bindTouch('btn-jump', 'w');
+bindTouch('btn-attack', 'attack');
+document.getElementById('btn-spell').addEventListener('touchstart', (e) => { e.preventDefault(); audio.init(); castSpell(1); }, { passive: false });
+document.getElementById('btn-audio').addEventListener('click', () => audio.toggleMute());
+
+/* --- STAGE CONFIGURATIONS --- */
+const STAGES = [
+    { name: "Arcane Canopy", bgTop: "#0b0d19", bgBot: "#141a29", glow: "#00e676", ground: "#0a0e17" },
+    { name: "Shattered Ruins", bgTop: "#1a0b12", bgBot: "#28121d", glow: "#ff4081", ground: "#12080d" },
+    { name: "Crystal Caverns", bgTop: "#05131e", bgBot: "#0d2838", glow: "#00e5ff", ground: "#040d14" },
+    { name: "Volcanic Core", bgTop: "#1c0702", bgBot: "#330e04", glow: "#ff3d00", ground: "#120401" },
+    { name: "Frozen Tundra", bgTop: "#061826", bgBot: "#12344d", glow: "#80d8ff", ground: "#04101a" },
+    { name: "Toxic Swamp", bgTop: "#081807", bgBot: "#133111", glow: "#b2ff59", ground: "#051004" },
+    { name: "Sunken Temple", bgTop: "#021217", bgBot: "#062933", glow: "#1de9b6", ground: "#010c0f" },
+    { name: "Corrupted Citadel", bgTop: "#14041a", bgBot: "#2b0a36", glow: "#e040fb", ground: "#0d0212" },
+    { name: "Celestial Peak", bgTop: "#171403", bgBot: "#332c08", glow: "#ffd700", ground: "#100d02" },
+    { name: "Void Nexus", bgTop: "#050008", bgBot: "#12001c", glow: "#a700ff", ground: "#030005" }
+];
+
+const WEAPONS = [
+    { name: "Arcane Blade", damage: 22, color: "#00e676", rarity: "Common" },
+    { name: "Rune Cleaver", damage: 36, color: "#00b0ff", rarity: "Rare" },
+    { name: "Flame-Forged Edge", damage: 55, color: "#ff9100", rarity: "Epic" },
+    { name: "Void-Slayer Scythe", damage: 85, color: "#e040fb", rarity: "Legendary" }
+];
+
+/* --- PLAYER ENGINE --- */
+class Player {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.x = 100;
+        this.y = 300;
+        this.width = 40;
+        this.height = 58;
+        this.vx = 0;
+        this.vy = 0;
+        this.speed = 6;
+        this.jumpStrength = -13;
+        this.grounded = false;
+        
+        this.level = 1;
+        this.xp = 0;
+        this.xpNeeded = 100;
+        this.skillPoints = 0;
+        
+        this.maxHp = 100;
+        this.hp = 100;
+        this.maxMana = 100;
+        this.mana = 100;
+        this.manaRegen = 0.25;
+        this.hpRegen = 0.05;
+        
+        this.equippedWeapon = WEAPONS[0];
+        this.isAttacking = false;
+        this.hasHitThisSwing = false;
+        this.attackDurationFrames = 0;
+        this.attackCooldown = 0;
+        this.facing = 'right';
+        this.animFrame = 0;
+
+        this.skills = {
+            vitality: 0, mana: 0, slash: 0, agility: 0,
+            fireball: 0, frost: 0, lightning: 0, vampirism: 0,
+            crit: 0, armor: 0, cooldown: 0, luck: 0
+        };
+    }
+
+    update() {
+        if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.hpRegen + (this.skills.vitality * 0.05));
+        if (this.mana < this.maxMana) this.mana = Math.min(this.maxMana, this.mana + this.manaRegen + (this.skills.mana * 0.1));
+
+        const moveSpeed = this.speed * (1 + this.skills.agility * 0.1);
+        if (keys.a) { this.vx = -moveSpeed; this.facing = 'left'; }
+        else if (keys.d) { this.vx = moveSpeed; this.facing = 'right'; }
+        else { this.vx *= 0.8; }
+
+        if ((keys.w || keys.space) && this.grounded) {
+            this.vy = this.jumpStrength * (1 + this.skills.agility * 0.05);
+            this.grounded = false;
+        }
+
+        this.vy += GRAVITY;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.y + this.height >= CANVAS_HEIGHT - 60) {
+            this.y = CANVAS_HEIGHT - 60 - this.height;
+            this.vy = 0;
+            this.grounded = true;
+        }
+
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
+
+        if (this.attackCooldown > 0) this.attackCooldown--;
+
+        if (this.attackDurationFrames > 0) {
+            this.attackDurationFrames--;
+            if (this.attackDurationFrames <= 0) {
+                this.isAttacking = false;
+                this.hasHitThisSwing = false;
+            }
+        }
+
+        const maxCd = Math.max(6, 14 - this.skills.cooldown * 1.2);
+        if (keys.attack && this.attackCooldown === 0) {
+            this.isAttacking = true;
+            this.hasHitThisSwing = false;
+            this.attackCooldown = maxCd;
+            this.attackDurationFrames = 7;
+            audio.playMeleeSound();
+        }
+
+        this.animFrame += 0.15;
+    }
+
+    addXP(amount) {
+        this.xp += amount;
+        createFloatingText(`+${amount} XP`, this.x + 10, this.y - 10, "#e040fb");
+        if (this.xp >= this.xpNeeded) {
+            this.xp -= this.xpNeeded;
+            this.level++;
+            this.skillPoints++;
+            this.xpNeeded = Math.floor(this.xpNeeded * 1.4);
+            this.hp = this.maxHp;
+            this.mana = this.maxMana;
+            createFloatingText("LEVEL UP!", this.x, this.y - 30, "#ffca28");
+        }
+        saveGameProgress();
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        if (this.facing === 'left') ctx.scale(-1, 1);
+
+        // Legs
+        ctx.fillStyle = "#1e293b";
+        const legOffset = Math.sin(this.animFrame) * 6 * (Math.abs(this.vx) > 0.5 ? 1 : 0);
+        ctx.fillRect(-12, 10 + legOffset, 8, 18);
+        ctx.fillRect(4, 10 - legOffset, 8, 18);
+
+        // Body Armor
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(-14, -14, 28, 28);
+        ctx.fillStyle = this.equippedWeapon.color;
+        ctx.fillRect(-10, -10, 20, 20);
+
+        // Head / Helmet
+        ctx.fillStyle = "#334155";
+        ctx.beginPath();
+        ctx.arc(0, -20, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Visor Glow
+        ctx.fillStyle = "#00e676";
+        ctx.shadowColor = "#00e676";
+        ctx.shadowBlur = 8;
+        ctx.fillRect(2, -22, 8, 4);
+
+        // Sword / Attack Render
+        ctx.fillStyle = this.equippedWeapon.color;
+        ctx.shadowColor = this.equippedWeapon.color;
+        ctx.shadowBlur = 12;
+
+        if (this.isAttacking) {
+            ctx.beginPath();
+            ctx.arc(10, 0, 50, -Math.PI / 3, Math.PI / 3);
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = this.equippedWeapon.color;
+            ctx.stroke();
+        } else {
+            ctx.fillRect(10, -18, 6, 28);
+        }
+
+        ctx.restore();
+    }
+}
+
+/* --- PROCEDURAL SPRITE ENEMIES --- */
+class Enemy {
+    constructor(type, x, y) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.active = true;
+        this.isFrozen = false;
+        this.freezeTimer = 0;
+        this.animFrame = Math.random() * 10;
+
+        if (type === 'pterodactyl') {
+            this.width = 46; this.height = 32;
+            this.hp = 45; this.maxHp = 45;
+            this.baseSpeed = -4.5;
+            this.color = "#80deea";
+            this.isFlying = true;
+            this.xpValue = 35;
+        } else if (type === 'tank') {
+            this.width = 68; this.height = 68;
+            this.hp = 200; this.maxHp = 200;
+            this.baseSpeed = -2.0;
+            this.color = "#ff7043";
+            this.isFlying = false;
+            this.xpValue = 75;
+        } else if (type === 'spitter') {
+            this.width = 40; this.height = 48;
+            this.hp = 65; this.maxHp = 65;
+            this.baseSpeed = -3.2;
+            this.color = "#d4e157";
+            this.isFlying = false;
+            this.xpValue = 45;
+        } else {
+            this.width = 48; this.height = 44;
+            this.hp = 75; this.maxHp = 75;
+            this.baseSpeed = -4.8;
+            this.color = "#eeff41";
+            this.isFlying = false;
+            this.xpValue = 50;
+        }
+        this.vx = this.baseSpeed;
+    }
+
+    update() {
+        if (this.isFrozen) {
+            this.freezeTimer--;
+            if (this.freezeTimer <= 0) {
+                this.isFrozen = false;
+                this.vx = this.baseSpeed;
+            }
+        }
+        this.x += this.vx;
+        if (this.isFlying) {
+            this.y += Math.sin(Date.now() * 0.005) * 1.5;
+        }
+        if (this.x < -100) this.active = false;
+        this.animFrame += 0.2;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        if (this.isFrozen) {
+            ctx.fillStyle = "#80d8ff";
+            ctx.shadowColor = "#00e5ff";
+            ctx.shadowBlur = 10;
+        } else {
+            ctx.fillStyle = this.color;
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 6;
+        }
+
+        if (this.type === 'pterodactyl') {
+            const wingY = Math.sin(this.animFrame) * 12;
+            ctx.beginPath();
+            ctx.moveTo(-20, 0); ctx.lineTo(-5, wingY - 10); ctx.lineTo(10, 0); ctx.lineTo(-5, wingY + 10);
+            ctx.fill();
+            ctx.fillRect(5, -6, 16, 12);
+        } else if (this.type === 'tank') {
+            ctx.fillRect(-28, -20, 56, 40);
+            ctx.fillStyle = "#3e2723";
+            ctx.beginPath();
+            ctx.moveTo(-30, -10); ctx.lineTo(-40, 0); ctx.lineTo(-30, 10);
+            ctx.fill();
+        } else if (this.type === 'spitter') {
+            ctx.fillRect(-16, -20, 32, 40);
+            ctx.fillStyle = "#aeea00";
+            ctx.beginPath();
+            ctx.arc(-10, -6, 6, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            const tailY = Math.sin(this.animFrame) * 4;
+            ctx.fillRect(-18, -14, 36, 28);
+            ctx.fillRect(10, -8 + tailY, 12, 6);
+        }
+
+        ctx.restore();
+
+        if (this.hp < this.maxHp) {
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(this.x, this.y - 10, this.width, 5);
+            ctx.fillStyle = "#ff1744";
+            ctx.fillRect(this.x, this.y - 10, (this.hp / this.maxHp) * this.width, 5);
+        }
+    }
+}
+
+/* --- 10 UNIQUE BOSS SPRITE CLASS --- */
+class Boss {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.x = CANVAS_WIDTH + 100;
+        this.y = CANVAS_HEIGHT - 240;
+        this.width = 170;
+        this.height = 170;
+        this.hp = 1000;
+        this.maxHp = 1000;
+        this.active = false;
+        this.stageIndex = 0;
+        this.attackTimer = 0;
+        this.animFrame = 0;
+        this.vy = 0;
+    }
+
+    initStage(stageIdx) {
+        this.stageIndex = stageIdx;
+        this.maxHp = 1000 + (stageIdx * 650);
+        this.hp = this.maxHp;
+        this.x = CANVAS_WIDTH + 80;
+        this.y = CANVAS_HEIGHT - 220;
+        this.active = true;
+        this.attackTimer = 0;
+    }
+
+    update(player) {
+        if (this.x > CANVAS_WIDTH - 220) {
+            this.x -= 2;
+            return;
+        }
+
+        this.animFrame += 0.08;
+        this.attackTimer++;
+
+        this.y = (CANVAS_HEIGHT - 220) + Math.sin(this.animFrame * 2) * (20 + this.stageIndex * 3);
+
+        if (this.attackTimer % Math.max(50, 110 - this.stageIndex * 6) === 0) {
+            this.performAttack(player);
+        }
+    }
+
+    performAttack(player) {
+        const stageColors = ["#00e676", "#ff4081", "#00e5ff", "#ff3d00", "#80d8ff", "#b2ff59", "#1de9b6", "#e040fb", "#ffd700", "#a700ff"];
+        const projColor = stageColors[this.stageIndex % stageColors.length];
+
+        const angle = Math.atan2(player.y - this.y, player.x - this.x);
+        const vx = Math.cos(angle) * (5 + this.stageIndex * 0.5);
+        const vy = Math.sin(angle) * (5 + this.stageIndex * 0.5);
+
+        enemies.push(new BossProjectile(this.x + 20, this.y + 60, vx, vy, projColor));
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        const stageColors = ["#00e676", "#ff4081", "#00e5ff", "#ff3d00", "#80d8ff", "#b2ff59", "#1de9b6", "#e040fb", "#ffd700", "#a700ff"];
+        const themeColor = stageColors[this.stageIndex % stageColors.length];
+
+        ctx.fillStyle = themeColor;
+        ctx.shadowColor = themeColor;
+        ctx.shadowBlur = 20;
+
+        ctx.beginPath();
+        if (this.stageIndex === 0) {
+            ctx.arc(0, 0, 70, 0, Math.PI * 2);
+        } else if (this.stageIndex === 3) {
+            ctx.moveTo(-60, 60); ctx.lineTo(0, -70); ctx.lineTo(60, 60);
+        } else if (this.stageIndex === 9) {
+            for (let i = 0; i < 8; i++) {
+                const ang = (Math.PI * 2 / 8) * i + this.animFrame;
+                const rx = Math.cos(ang) * 75; const ry = Math.sin(ang) * 75;
+                ctx.lineTo(rx, ry);
+            }
+        } else {
+            ctx.roundRect(-65, -65, 130, 130, 20);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(-20, -10, 16, 0, Math.PI * 2);
+        ctx.arc(20, -10, 16, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+class BossProjectile {
+    constructor(x, y, vx, vy, color) {
+        this.x = x; this.y = y;
+        this.vx = vx; this.vy = vy;
+        this.color = color;
+        this.width = 18; this.height = 18;
+        this.active = true;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < -50 || this.x > CANVAS_WIDTH + 50 || this.y < -50 || this.y > CANVAS_HEIGHT + 50) {
+            this.active = false;
+        }
+    }
+    draw() {
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+/* --- ENVIRONMENT & PARTICLES --- */
+let bgScrollX = 0;
+let ambientParticles = [];
+
+for (let i = 0; i < 50; i++) {
+    ambientParticles.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT,
+        radius: Math.random() * 2.5 + 1,
+        speedX: -Math.random() * 1.5 - 0.5,
+        speedY: (Math.random() - 0.5) * 0.5,
+        alpha: Math.random() * 0.6 + 0.2
+    });
+}
+
+function drawEnvironment() {
+    const curStage = STAGES[currentStageIndex];
+
+    let gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    gradient.addColorStop(0, curStage.bgTop);
+    gradient.addColorStop(0.6, curStage.bgBot);
+    gradient.addColorStop(1, curStage.ground);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    if (gamePhase !== 'PAUSED' && gamePhase !== 'SKILLS' && gamePhase !== 'COUNTDOWN') {
+        bgScrollX += 0.6;
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    ctx.beginPath();
+    ctx.moveTo(0, CANVAS_HEIGHT - 60);
+    for (let x = 0; x <= CANVAS_WIDTH + 100; x += 100) {
+        let drawX = x - (bgScrollX * 0.3) % 100;
+        let height = Math.sin((x + bgScrollX * 0.1) * 0.01) * 60 + 180;
+        ctx.lineTo(drawX, CANVAS_HEIGHT - height);
+    }
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.lineTo(0, CANVAS_HEIGHT);
+    ctx.fill();
+
+    ambientParticles.forEach(p => {
+        if (gamePhase !== 'PAUSED' && gamePhase !== 'SKILLS' && gamePhase !== 'COUNTDOWN') {
+            p.x += p.speedX;
+            p.y += p.speedY;
+            if (p.x < 0) p.x = CANVAS_WIDTH;
+            if (p.y < 0) p.y = CANVAS_HEIGHT - 60;
+        }
+
+        ctx.save();
+        ctx.fillStyle = curStage.glow;
+        ctx.globalAlpha = p.alpha;
+        ctx.shadowColor = curStage.glow;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+
+    ctx.fillStyle = curStage.ground;
+    ctx.fillRect(0, CANVAS_HEIGHT - 60, CANVAS_WIDTH, 60);
+
+    ctx.strokeStyle = curStage.glow;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = curStage.glow;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(0, CANVAS_HEIGHT - 60);
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 60);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+}
+
+/* --- PROJECTILES & ITEMS --- */
+let enemies = [];
+let magicProjectiles = [];
+let particles = [];
+let floatingTexts = [];
+let lootItems = [];
+
+class MagicProjectile {
+    constructor(x, y, vx, vy, type) {
+        this.x = x; this.y = y;
+        this.vx = vx; this.vy = vy;
+        this.type = type;
+        this.radius = type === 'fireball' ? 14 : 8;
+        this.active = true;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x > CANVAS_WIDTH + 50 || this.x < -50) this.active = false;
+    }
+    draw() {
+        ctx.save();
+        ctx.fillStyle = this.type === 'fireball' ? "#ffab00" : "#80d8ff";
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class LootDrop {
+    constructor(x, y, weapon) {
+        this.x = x; this.y = y;
+        this.weapon = weapon;
+        this.active = true;
+        this.width = 24; this.height = 24;
+    }
+    update() {
+        this.x -= 3;
+        if (this.x < -50) this.active = false;
+    }
+    draw() {
+        ctx.save();
+        ctx.fillStyle = this.weapon.color;
+        ctx.shadowColor = this.weapon.color;
+        ctx.shadowBlur = 10;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.restore();
+    }
+}
+
+function createFloatingText(text, x, y, color) {
+    floatingTexts.push({ text, x, y, vy: -1.2, alpha: 1.0, color });
+}
+
+/* --- LOCALSTORAGE PERSISTENCE ENGINE --- */
+function saveGameProgress() {
+    try {
+        const payload = {
+            stage: currentStageIndex,
+            level: player.level,
+            xp: player.xp,
+            xpNeeded: player.xpNeeded,
+            skillPoints: player.skillPoints,
+            skills: player.skills,
+            weapon: player.equippedWeapon
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    } catch (e) {
+        console.warn("Storage save failed:", e);
+    }
+}
+
+function loadGameProgress() {
+    try {
+        const data = localStorage.getItem(SAVE_KEY);
+        if (data) {
+            const parsed = JSON.parse(data);
+            currentStageIndex = parsed.stage || 0;
+            player.level = parsed.level || 1;
+            player.xp = parsed.xp || 0;
+            player.xpNeeded = parsed.xpNeeded || 100;
+            player.skillPoints = parsed.skillPoints || 0;
+            if (parsed.skills) player.skills = { ...player.skills, ...parsed.skills };
+            if (parsed.weapon) player.equippedWeapon = parsed.weapon;
+            player.maxHp = 100 + (player.skills.vitality * 25);
+            player.maxMana = 100 + (player.skills.mana * 30);
+            player.hp = player.maxHp;
+            player.mana = player.maxMana;
+        }
+    } catch (e) {
+        console.warn("Storage load failed:", e);
+    }
+}
+
+/* --- GAME ENGINE & STATE MANAGEMENT --- */
+const player = new Player();
+const boss = new Boss();
+let currentStageIndex = 0;
+let gamePhase = 'START';
+let previousPhase = 'RUNNER';
+let distanceToBoss = 1500;
+let enemySpawnTimer = 0;
+let countdownTimerVal = 3;
+
+loadGameProgress();
+
+function startCountdown(nextPhase) {
+    gamePhase = 'COUNTDOWN';
+    countdownTimerVal = 3;
+    const el = document.getElementById('countdown-overlay');
+    const txt = document.getElementById('countdown-text');
+    el.classList.remove('hidden');
+    txt.innerText = countdownTimerVal;
+
+    const interval = setInterval(() => {
+        countdownTimerVal--;
+        if (countdownTimerVal > 0) {
+            txt.innerText = countdownTimerVal;
+        } else {
+            clearInterval(interval);
+            el.classList.add('hidden');
+            gamePhase = nextPhase;
+        }
+    }, 850);
+}
+
+function togglePause() {
+    if (gamePhase === 'PAUSED') {
+        gamePhase = previousPhase;
+        document.getElementById('pause-screen').classList.add('hidden');
+    } else if (gamePhase === 'RUNNER' || gamePhase === 'BOSS') {
+        previousPhase = gamePhase;
+        gamePhase = 'PAUSED';
+        document.getElementById('pause-screen').classList.remove('hidden');
+    }
+}
+
+function castSpell(slot) {
+    if (gamePhase !== 'RUNNER' && gamePhase !== 'BOSS') return;
+
+    if (slot === 1 && player.mana >= 20) {
+        player.mana -= 20;
+        audio.playSpellSound();
+        const dir = player.facing === 'right' ? 12 : -12;
+        magicProjectiles.push(new MagicProjectile(player.x + 20, player.y + 20, dir, 0, 'fireball'));
+    } else if (slot === 2 && player.mana >= 35) {
+        player.mana -= 35;
+        audio.playSpellSound();
+        enemies.forEach(e => {
+            if (e.x < CANVAS_WIDTH && !(e instanceof BossProjectile)) {
+                e.isFrozen = true;
+                e.freezeTimer = 240 + (player.skills.frost * 30);
+                e.vx = e.baseSpeed * 0.4;
+                createFloatingText("FROZEN!", e.x, e.y - 10, "#80d8ff");
+            }
+        });
+    } else if (slot === 3 && player.mana >= 50) {
+        player.mana -= 50;
+        audio.playSpellSound();
+        const lDmg = 80 + (player.skills.lightning * 25);
+        enemies.forEach(e => {
+            if (e.x < CANVAS_WIDTH && !(e instanceof BossProjectile)) {
+                e.hp -= lDmg;
+                createFloatingText(`-${lDmg} ⚡`, e.x, e.y, "#ffff00");
+                if (e.hp <= 0 && e.active) {
+                    e.active = false;
+                    player.addXP(e.xpValue);
+                }
+            }
+        });
+
+        if (gamePhase === 'BOSS' && boss.x < CANVAS_WIDTH) {
+            boss.hp -= lDmg;
+            createFloatingText(`-${lDmg} ⚡`, boss.x + 40, boss.y + 20, "#ffff00");
+            document.getElementById('boss-health').style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + '%';
+            if (boss.hp <= 0) triggerStageClear();
+        }
+    }
+}
+
+function upgradeSkill(skillKey) {
+    if (player.skillPoints > 0) {
+        player.skillPoints--;
+        player.skills[skillKey]++;
+        if (skillKey === 'vitality') player.maxHp += 25;
+        if (skillKey === 'mana') player.maxMana += 30;
+        saveGameProgress();
+        updateUI();
+    }
+}
+
+function updateUI() {
+    document.getElementById('lbl-stage').innerText = `${currentStageIndex + 1}/10`;
+    document.getElementById('lbl-level').innerText = player.level;
+    document.getElementById('lbl-weapon').innerText = player.equippedWeapon.name;
+    document.getElementById('lbl-weapon').style.color = player.equippedWeapon.color;
+    document.getElementById('lbl-sp-avail').innerText = `SP: ${player.skillPoints}`;
+    document.getElementById('skill-points-display').innerText = player.skillPoints;
+
+    document.getElementById('player-health').style.width = Math.max(0, (player.hp / player.maxHp) * 100) + '%';
+    document.getElementById('player-mana').style.width = Math.max(0, (player.mana / player.maxMana) * 100) + '%';
+    document.getElementById('player-xp').style.width = Math.max(0, (player.xp / player.xpNeeded) * 100) + '%';
+
+    Object.keys(player.skills).forEach(k => {
+        const el = document.getElementById(`lvl-${k}`);
+        if (el) el.innerText = player.skills[k];
+    });
+
+    if (gamePhase === 'RUNNER' || ((gamePhase === 'PAUSED' || gamePhase === 'SKILLS') && previousPhase === 'RUNNER')) {
+        document.getElementById('lbl-distance').innerText = `PROGRESS: ${Math.max(0, Math.floor(distanceToBoss))}m`;
+    } else {
+        document.getElementById('lbl-distance').innerText = `BOSS ENGAGED`;
+    }
+}
+
+function spawnEnemiesPattern() {
+    enemySpawnTimer++;
+    if (enemySpawnTimer % Math.max(35, 75 - currentStageIndex * 4) === 0) {
+        const types = ['raptor', 'pterodactyl', 'tank', 'spitter'];
+        const chosen = types[Math.floor(Math.random() * types.length)];
+        let spawnY = CANVAS_HEIGHT - 60 - 50;
+        if (chosen === 'pterodactyl') spawnY = CANVAS_HEIGHT - 220 - Math.random() * 80;
+        if (chosen === 'tank') spawnY = CANVAS_HEIGHT - 60 - 68;
+
+        enemies.push(new Enemy(chosen, CANVAS_WIDTH + 40, spawnY));
+    }
+}
+
+function checkCollisions() {
+    if (player.isAttacking && !player.hasHitThisSwing) {
+        const attackBox = {
+            x: player.facing === 'right' ? player.x + player.width : player.x - 60,
+            y: player.y, width: 60, height: player.height
+        };
+        
+        enemies.forEach(e => {
+            if (!(e instanceof BossProjectile) && attackBox.x < e.x + e.width && attackBox.x + attackBox.width > e.x &&
+                attackBox.y < e.y + e.height && attackBox.y + attackBox.height > e.y) {
+                
+                player.hasHitThisSwing = true;
+                audio.playHitImpact();
+                let isCrit = Math.random() < (player.skills.crit * 0.1);
+                let totalDmg = player.equippedWeapon.damage * (1 + player.skills.slash * 0.15) * (isCrit ? 2 : 1);
+                
+                e.hp -= totalDmg;
+                if (player.skills.vampirism > 0) player.hp = Math.min(player.maxHp, player.hp + totalDmg * 0.05);
+
+                createFloatingText(`-${Math.floor(totalDmg)}${isCrit ? ' CRIT!' : ''}`, e.x, e.y, isCrit ? "#ff1744" : "#ff5252");
+                
+                if (e.hp <= 0 && e.active) {
+                    e.active = false;
+                    player.addXP(e.xpValue);
+                    if (Math.random() < (0.25 + player.skills.luck * 0.15)) {
+                        const randomWeapon = WEAPONS[Math.floor(Math.random() * WEAPONS.length)];
+                        lootItems.push(new LootDrop(e.x, e.y, randomWeapon));
+                    }
+                }
+            }
+        });
+
+        if (gamePhase === 'BOSS' && attackBox.x < boss.x + boss.width && attackBox.x + attackBox.width > boss.x) {
+            player.hasHitThisSwing = true;
+            audio.playHitImpact();
+            let totalDmg = player.equippedWeapon.damage * (1 + player.skills.slash * 0.15);
+            boss.hp -= totalDmg;
+            document.getElementById('boss-health').style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + '%';
+            if (boss.hp <= 0) triggerStageClear();
+        }
+    }
+
+    magicProjectiles.forEach(p => {
+        enemies.forEach(e => {
+            if (!(e instanceof BossProjectile) && p.x > e.x && p.x < e.x + e.width && p.y > e.y && p.y < e.y + e.height) {
+                audio.playHitImpact();
+                const fDmg = 60 + (player.skills.fireball * 20);
+                e.hp -= fDmg;
+                p.active = false;
+                createFloatingText(`-${fDmg} 🔥`, e.x, e.y, "#ff9100");
+                if (e.hp <= 0 && e.active) {
+                    e.active = false;
+                    player.addXP(e.xpValue);
+                }
+            }
+        });
+
+        if (gamePhase === 'BOSS' && p.x > boss.x && p.x < boss.x + boss.width && p.y > boss.y && p.y < boss.y + boss.height) {
+            audio.playHitImpact();
+            const fDmg = 60 + (player.skills.fireball * 20);
+            boss.hp -= fDmg;
+            p.active = false;
+            createFloatingText(`-${fDmg} 🔥`, boss.x + 40, boss.y + 20, "#ff9100");
+            document.getElementById('boss-health').style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + '%';
+            if (boss.hp <= 0) triggerStageClear();
+        }
+    });
+
+    enemies.forEach(e => {
+        if (player.x < e.x + e.width && player.x + player.width > e.x &&
+            player.y < e.y + e.height && player.y + player.height > e.y) {
+            const baseDmg = e instanceof BossProjectile ? 15 : 0.8;
+            const finalDmg = Math.max(0.1, baseDmg * (1 - player.skills.armor * 0.1));
+            player.hp -= finalDmg;
+            if (e instanceof BossProjectile) {
+                e.active = false;
+                audio.playHitImpact();
+            }
+        }
+    });
+
+    lootItems.forEach(l => {
+        if (player.x < l.x + l.width && player.x + player.width > l.x &&
+            player.y < l.y + l.height && player.y + player.height > l.y) {
+            l.active = false;
+            player.equippedWeapon = l.weapon;
+            saveGameProgress();
+            createFloatingText(`EQUIPPED: ${l.weapon.name}`, player.x, player.y - 20, l.weapon.color);
+        }
+    });
+}
+
+function triggerStageClear() {
+    saveGameProgress();
+    if (currentStageIndex >= 9) {
+        gamePhase = 'VICTORY';
+        document.getElementById('victory-screen').classList.remove('hidden');
+    } else {
+        gamePhase = 'STAGE_CLEAR';
+        document.getElementById('stage-clear-desc').innerText = `${STAGES[currentStageIndex].name} Cleared! Apex Boss Vanquished!`;
+        document.getElementById('stage-clear-screen').classList.remove('hidden');
+    }
+}
+
+function advanceToNextStage() {
+    currentStageIndex++;
+    distanceToBoss = 1500 + currentStageIndex * 300;
+    enemies = [];
+    magicProjectiles = [];
+    lootItems = [];
+    boss.reset();
+    saveGameProgress();
+    document.getElementById('stage-clear-screen').classList.add('hidden');
+    document.getElementById('boss-hud').classList.remove('active');
+
+    startCountdown('RUNNER');
+}
+
+function restartGame() {
+    currentStageIndex = 0;
+    player.reset();
+    boss.reset();
+    enemies = [];
+    magicProjectiles = [];
+    particles = [];
+    floatingTexts = [];
+    lootItems = [];
+    distanceToBoss = 1500;
+    enemySpawnTimer = 0;
+    saveGameProgress();
+
+    document.getElementById('defeat-screen').classList.add('hidden');
+    document.getElementById('victory-screen').classList.add('hidden');
+    document.getElementById('stage-clear-screen').classList.add('hidden');
+    document.getElementById('pause-screen').classList.add('hidden');
+    document.getElementById('skill-screen').classList.add('hidden');
+    document.getElementById('boss-hud').classList.remove('active');
+
+    startCountdown('RUNNER');
+}
+
+function gameLoop() {
+    drawEnvironment();
+
+    if (gamePhase === 'RUNNER' || gamePhase === 'BOSS') {
+        player.update();
+        player.draw();
+
+        if (gamePhase === 'RUNNER') {
+            distanceToBoss -= 1.5;
+            spawnEnemiesPattern();
+            if (distanceToBoss <= 0) {
+                gamePhase = 'BOSS';
+                enemies = [];
+                boss.initStage(currentStageIndex);
+                document.getElementById('boss-hud').classList.add('active');
+                document.getElementById('boss-name').innerText = `STAGE ${currentStageIndex + 1} APEX TARGET`;
+            }
+        } else if (gamePhase === 'BOSS') {
+            boss.update(player);
+            boss.draw();
+        }
+
+        magicProjectiles.forEach(p => { p.update(); p.draw(); });
+        magicProjectiles = magicProjectiles.filter(p => p.active);
+
+        enemies.forEach(e => { e.update(); e.draw(); });
+        enemies = enemies.filter(e => e.active);
+
+        lootItems.forEach(l => { l.update(); l.draw(); });
+        lootItems = lootItems.filter(l => l.active);
+
+        floatingTexts.forEach((ft) => {
+            ft.y += ft.vy;
+            ft.alpha -= 0.02;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, ft.alpha);
+            ctx.fillStyle = ft.color;
+            ctx.font = "bold 13px system-ui";
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        });
+        floatingTexts = floatingTexts.filter(ft => ft.alpha > 0 && ft.y > -20);
+
+        checkCollisions();
+        updateUI();
+
+        if (player.hp <= 0) {
+            gamePhase = 'DEFEAT';
+            document.getElementById('defeat-screen').classList.remove('hidden');
+        }
+    } else if (gamePhase === 'PAUSED' || gamePhase === 'SKILLS' || gamePhase === 'COUNTDOWN') {
+        player.draw();
+        if (previousPhase === 'BOSS') boss.draw();
+        enemies.forEach(e => e.draw());
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+document.getElementById('btn-pause').addEventListener('click', togglePause);
+document.getElementById('btn-resume').addEventListener('click', togglePause);
+document.getElementById('btn-skills').addEventListener('click', () => {
+    if (gamePhase === 'RUNNER' || gamePhase === 'BOSS') {
+        previousPhase = gamePhase;
+        gamePhase = 'SKILLS';
+        document.getElementById('skill-screen').classList.remove('hidden');
+    }
+});
+document.getElementById('btn-close-skills').addEventListener('click', () => {
+    if (gamePhase === 'SKILLS') {
+        gamePhase = previousPhase;
+        document.getElementById('skill-screen').classList.add('hidden');
+    }
+});
+document.getElementById('btn-start').addEventListener('click', () => {
+    audio.init();
+    document.getElementById('start-screen').classList.add('hidden');
+    startCountdown('RUNNER');
+});
+document.getElementById('btn-next-stage').addEventListener('click', advanceToNextStage);
+document.getElementById('btn-restart').addEventListener('click', restartGame);
+document.getElementById('btn-victory-restart').addEventListener('click', restartGame);
+
+resizeGame();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
