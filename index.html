@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jurassic Rampage - Apex Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #050508;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        #game-wrapper {
+            position: relative;
+            width: 960px;
+            height: 540px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #game-container {
+            position: relative;
+            width: 960px;
+            height: 540px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 230, 118, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: #000;
+            transform-origin: center center;
+        }
+        canvas {
+            display: block;
+            width: 960px;
+            height: 540px;
+        }
+
+        /* Overlay & HUD Formatting */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+            z-index: 5;
+        }
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+            gap: 12px;
+        }
+        .hud-card {
+            background: rgba(12, 16, 24, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 10px 14px;
+            border-radius: 8px;
+            min-width: 220px;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .bar-container {
+            width: 100%;
+            height: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            padding: 2px;
+            margin-top: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.15s ease-out;
+            box-shadow: 0 0 10px currentColor;
+        }
+        #player-health { background: linear-gradient(90deg, #00e676, #76ff03); color: #00e676; }
+        #boss-health { background: linear-gradient(90deg, #ff1744, #ff5252); color: #ff1744; width: 100%; }
+        
+        .boss-hud {
+            width: 42%;
+            margin: 0 auto;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .boss-hud.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .boss-title {
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #ff5252;
+            text-shadow: 0 0 8px rgba(255, 23, 68, 0.5);
+        }
+        #level-title {
+            font-size: 13px;
+            color: #ffca28;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+        #distance-hud {
+            font-size: 11px;
+            color: #00e676;
+            font-weight: 700;
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        .btn-fullscreen {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            pointer-events: auto;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        .btn-fullscreen:active {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(0.95);
+        }
+
+        /* Screens */
+        .screen-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 7, 12, 0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            padding: 40px;
+            text-align: center;
+            transition: opacity 0.4s ease;
+        }
+        .screen-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .game-logo {
+            font-size: 52px;
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #00e676, #00b0ff, #ff1744);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8));
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #90a4ae;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 36px;
+            font-weight: 600;
+        }
+        .btn-main {
+            background: linear-gradient(135deg, #00e676, #00b0ff);
+            border: none;
+            color: #000;
+            font-size: 16px;
+            font-weight: 900;
+            padding: 16px 48px;
+            border-radius: 40px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 10px 30px rgba(0, 230, 118, 0.4);
+            transition: all 0.2s ease;
+            pointer-events: auto;
+        }
+        .btn-main:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 15px rgba(0, 230, 118, 0.3);
+        }
+        .intro-story {
+            max-width: 620px;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #cfd8dc;
+            margin-bottom: 32px;
+            font-weight: 400;
+        }
+
+        /* Countdown Banner */
+        #countdown-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #countdown-overlay.active {
+            opacity: 1;
+        }
+        #countdown-text {
+            font-size: 72px;
+            font-weight: 900;
+            font-style: italic;
+            color: #00e676;
+            text-shadow: 0 0 30px rgba(0, 230, 118, 0.8), 0 0 60px rgba(0, 0, 0, 0.9);
+            letter-spacing: 2px;
+        }
+        #countdown-subtext {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffca28;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-top: -10px;
+        }
+
+        /* Mobile Controls */
+        #touch-controls {
+            position: absolute;
+            bottom: 16px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 24px;
+            pointer-events: auto;
+            z-index: 12;
+        }
+        .touch-group {
+            display: flex;
+            gap: 14px;
+        }
+        .touch-btn {
+            width: 68px;
+            height: 68px;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 24px;
+            color: #fff;
+            user-select: none;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            transition: background 0.1s, transform 0.1s;
+        }
+        .touch-btn:active {
+            background: rgba(255, 255, 255, 0.35);
+            transform: scale(0.92);
+        }
+        .touch-btn-action {
+            background: rgba(255, 23, 68, 0.3);
+            border-color: rgba(255, 23, 68, 0.6);
+            box-shadow: 0 8px 24px rgba(255, 23, 68, 0.3);
+        }
+        .touch-btn-action:active {
+            background: rgba(255, 23, 68, 0.6);
+        }
+
+        @media (min-width: 1025px) {
+            #touch-controls {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="game-container">
+        <canvas id="gameCanvas" width="960" height="540"></canvas>
+        
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <button id="fullscreen-btn" class="btn-fullscreen">Fullscreen</button>
+            
+            <div class="hud-top">
+                <div class="hud-card">
+                    <div style="font-size: 9px; font-weight: 900; color: #78909c; letter-spacing: 1.5px;">HUNTER INTEGRITY</div>
+                    <div class="bar-container">
+                        <div id="player-health" class="bar-fill" style="width: 100%;"></div>
+                    </div>
+                    <div id="level-title" style="margin-top: 6px;">Level 1</div>
+                    <div id="distance-hud">DISTANCE: 1000m</div>
+                </div>
+                
+                <div id="boss-hud" class="boss-hud hud-card">
+                    <div id="boss-name" class="boss-title">APEX TARGET</div>
+                    <div class="bar-container">
+                        <div id="boss-health" class="bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Countdown Banner -->
+            <div id="countdown-overlay">
+                <div id="countdown-text">READY</div>
+                <div id="countdown-subtext">GET READY TO RUN</div>
+            </div>
+
+            <!-- Touch Controls -->
+            <div id="touch-controls">
+                <div class="touch-group">
+                    <div class="touch-btn" id="btn-left">◄</div>
+                    <div class="touch-btn" id="btn-right">►</div>
+                </div>
+                <div class="touch-group">
+                    <div class="touch-btn" id="btn-jump">▲</div>
+                    <div class="touch-btn touch-btn-action" id="btn-attack">⚔</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen-overlay">
+            <div class="game-logo">Jurassic Rampage</div>
+            <div class="subtitle">Apex Predator Protocol</div>
+            <button id="btn-start" class="btn-main">Launch Operation</button>
+        </div>
+
+        <!-- Narrative Intro Screen -->
+        <div id="intro-screen" class="screen-overlay hidden">
+            <div class="game-logo" style="font-size: 32px;">Mission Briefing</div>
+            <p class="intro-story">
+                An ancient primal outbreak has breached containment across five uncharted sectors. 
+                Sprinting through treacherous, hazard-ridden terrain, you must survive high and low environmental anomalies to reach the territorial Apex Dinos and eliminate them before total bio-collapse.
+            </p>
+            <button id="btn-begin" class="btn-main">Engage Sector 1</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('game-container');
+
+const GRAVITY = 0.55;
+const CANVAS_WIDTH = 960;
+const CANVAS_HEIGHT = 540;
+
+function resizeGame() {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const scale = Math.min(windowWidth / CANVAS_WIDTH, windowHeight / CANVAS_HEIGHT);
+    container.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', resizeGame);
+window.addEventListener('load', resizeGame);
+
+document.getElementById('fullscreen-btn').addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+    }
+});
+
+const keys = { a: false, d: false, w: false, space: false, attack: false };
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'a' || e.key === 'A') keys.a = true;
+    if (e.key === 'd' || e.key === 'D') keys.d = true;
+    if (e.key === 'w' || e.key === 'W') keys.w = true;
+    if (e.key === ' ') keys.space = true;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'a' || e.key === 'A') keys.a = false;
+    if (e.key === 'd' || e.key === 'D') keys.d = false;
+    if (e.key === 'w' || e.key === 'W') keys.w = false;
+    if (e.key === ' ') keys.space = false;
+});
+
+canvas.addEventListener('mousedown', (e) => { if (e.button === 0) keys.attack = true; });
+canvas.addEventListener('mouseup', (e) => { if (e.button === 0) keys.attack = false; });
+
+const bindTouch = (id, keyName) => {
+    const el = document.getElementById(id);
+    const start = (e) => { e.preventDefault(); e.stopPropagation(); keys[keyName] = true; };
+    const end = (e) => { e.preventDefault(); e.stopPropagation(); keys[keyName] = false; };
+    el.addEventListener('touchstart', start, { passive: false });
+    el.addEventListener('touchend', end, { passive: false });
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', end);
+};
+bindTouch('btn-left', 'a');
+bindTouch('btn-right', 'd');
+bindTouch('btn-jump', 'w');
+bindTouch('btn-attack', 'attack');
+
+const LEVELS = [
+    {
+        id: 1,
+        name: "Level 1: Primeval Jungle Outpost",
+        bgTop: "#06130e",
+        bgBottom: "#132a13",
+        accent: "#00e676",
+        bossName: "Alpha Velociraptor",
+        bossColor: "#2e7d32",
+        hazardType: "spikes",
+        envParticles: "#76ff03",
+        dinoType: "raptor"
+    },
+    {
+        id: 2,
+        name: "Level 2: Ash & Sulphur Tar Pits",
+        bgTop: "#180808",
+        bgBottom: "#3d1408",
+        accent: "#ff3d00",
+        bossName: "Magma-Bred Ankylosaurus",
+        bossColor: "#d84315",
+        hazardType: "tar_bubble",
+        envParticles: "#ff5722",
+        dinoType: "ankylist"
+    },
+    {
+        id: 3,
+        name: "Level 3: Amber Ridge & Glass Peaks",
+        bgTop: "#1f1400",
+        bgBottom: "#4d3300",
+        accent: "#ffb300",
+        bossName: "Amber-Clawed Therizinosaurus",
+        bossColor: "#ff8f00",
+        hazardType: "amber_shard",
+        envParticles: "#ffc107",
+        dinoType: "therizino"
+    },
+    {
+        id: 4,
+        name: "Level 4: Abyssal Cenote",
+        bgTop: "#020813",
+        bgBottom: "#0a2540",
+        accent: "#00f5d4",
+        bossName: "Depth-Crawler Mosasaurus",
+        bossColor: "#0096c7",
+        hazardType: "spore",
+        envParticles: "#00f5d4",
+        dinoType: "mosa"
+    },
+    {
+        id: 5,
+        name: "Level 5: The Supervolcano Caldera",
+        bgTop: "#2b0008",
+        bgBottom: "#660014",
+        accent: "#ff1744",
+        bossName: "Apex Shadow Tyrannus",
+        bossColor: "#37474f",
+        hazardType: "falling_lava",
+        envParticles: "#ff1744",
+        dinoType: "trex"
+    }
+];
+
+let currentLevelIdx = 0;
+let ambientParticles = [];
+let gamePhase = 'START';
+let distanceToBoss = 1000;
+let runnerSpeed = 7;
+let globalTime = 0;
+let runnerGracePeriod = 0;
+let countdownTimer = null;
+
+class Player {
+    constructor() {
+        this.x = 100;
+        this.y = 300;
+        this.width = 38;
+        this.height = 56;
+        this.vx = 0;
+        this.vy = 0;
+        this.speed = 6;
+        this.jumpStrength = -13;
+        this.grounded = false;
+        this.hp = 100;
+        this.maxHp = 100;
+        this.isAttacking = false;
+        this.attackCooldown = 0;
+        this.attackBox = { x: 0, y: 0, width: 60, height: 56 };
+        this.facing = 'right';
+        this.runFrame = 0;
+    }
+
+    update() {
+        if (keys.a) {
+            this.vx = -this.speed;
+            this.facing = 'left';
+        } else if (keys.d) {
+            this.vx = this.speed;
+            this.facing = 'right';
+        } else {
+            this.vx *= 0.8;
+        }
+
+        if ((keys.w || keys.space) && this.grounded) {
+            this.vy = this.jumpStrength;
+            this.grounded = false;
+        }
+
+        this.vy += GRAVITY;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.y + this.height >= CANVAS_HEIGHT - 60) {
+            this.y = CANVAS_HEIGHT - 60 - this.height;
+            this.vy = 0;
+            this.grounded = true;
+        }
+
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
+
+        if (this.attackCooldown > 0) this.attackCooldown--;
+
+        if (keys.attack && this.attackCooldown === 0) {
+            this.isAttacking = true;
+            this.attackCooldown = 16;
+            setTimeout(() => { this.isAttacking = false; }, 150);
+        }
+
+        this.attackBox.x = this.facing === 'right' ? this.x + this.width : this.x - this.attackBox.width;
+        this.attackBox.y = this.y;
+        this.runFrame += 0.2;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.beginPath();
+        ctx.ellipse(this.x + this.width/2, CANVAS_HEIGHT - 56, 18, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        let bodyGrad = ctx.createLinearGradient(this.x, this.y, this.x + this.width, this.y + this.height);
+        bodyGrad.addColorStop(0, "#eceff1");
+        bodyGrad.addColorStop(1, "#455a64");
+        ctx.fillStyle = bodyGrad;
+        ctx.fillRect(this.x, this.y + 12, this.width, this.height - 12);
+
+        ctx.fillStyle = "#263238";
+        ctx.fillRect(this.x + (this.facing === 'right' ? 6 : 0), this.y, 32, 16);
+        
+        ctx.fillStyle = "#00e676";
+        ctx.shadowColor = "#00e676";
+        ctx.shadowBlur = 8;
+        const visorX = this.facing === 'right' ? this.x + 22 : this.x + 4;
+        ctx.fillRect(visorX, this.y + 4, 12, 6);
+        ctx.shadowBlur = 0;
+
+        if (this.isAttacking) {
+            ctx.fillStyle = "rgba(0, 230, 118, 0.4)";
+            ctx.strokeStyle = "#00e676";
+            ctx.lineWidth = 3;
+            ctx.shadowColor = "#00e676";
+            ctx.shadowBlur = 12;
+
+            ctx.beginPath();
+            if (this.facing === 'right') {
+                ctx.arc(this.x + this.width, this.y + this.height/2, 45, -Math.PI/3, Math.PI/3);
+            } else {
+                ctx.arc(this.x, this.y + this.height/2, 45, Math.PI*2/3, Math.PI*4/3);
+            }
+            ctx.stroke();
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.restore();
+    }
+}
+
+class Boss {
+    constructor(config) {
+        this.x = CANVAS_WIDTH + 100;
+        this.y = CANVAS_HEIGHT - 220;
+        this.width = 160;
+        this.height = 160;
+        this.hp = 700;
+        this.maxHp = 700;
+        this.color = config.bossColor;
+        this.name = config.bossName;
+        this.phase = 1;
+        this.attackTimer = 0;
+        this.vx = 0;
+        this.type = config.dinoType;
+    }
+
+    update(player) {
+        if (this.x > CANVAS_WIDTH - 220) {
+            this.x -= 3.5;
+            return;
+        }
+
+        this.attackTimer++;
+        if (this.hp < this.maxHp * 0.5 && this.phase === 1) {
+            this.phase = 2;
+        }
+
+        const attackInterval = this.phase === 2 ? 70 : 110;
+        if (this.attackTimer % attackInterval === 0) {
+            this.executePattern(player);
+        }
+
+        this.x += this.vx;
+        this.vx *= 0.88;
+
+        if (this.x < 300) this.x = 300;
+        if (this.x + this.width > CANVAS_WIDTH - 20) this.x = CANVAS_WIDTH - 20 - this.width;
+    }
+
+    executePattern(player) {
+        const rand = Math.random();
+        if (rand < 0.5) {
+            const dir = player.x < this.x ? -1 : 1;
+            this.vx = dir * (this.phase === 2 ? 16 : 10);
+        } else {
+            spawnHazard(this.x + 20, this.y + 40, false);
+            if (this.phase === 2) {
+                spawnHazard(this.x + 80, this.y + 20, false);
+            }
+        }
+    }
+
+    draw() {
+        ctx.save();
+
+        if (this.phase === 2) {
+            ctx.shadowColor = "#ff1744";
+            ctx.shadowBlur = 20;
+        }
+
+        ctx.fillStyle = this.phase === 2 ? "#d50000" : this.color;
+        ctx.fillRect(this.x + 30, this.y + 40, this.width - 50, this.height - 70);
+        ctx.fillRect(this.x, this.y + 10, 70, 50);
+
+        ctx.beginPath();
+        ctx.moveTo(this.x + this.width - 20, this.y + 50);
+        ctx.lineTo(this.x + this.width + 30, this.y + 20);
+        ctx.lineTo(this.x + this.width - 20, this.y + 80);
+        ctx.fill();
+
+        ctx.fillStyle = this.phase === 2 ? "#ffff00" : "#ff1744";
+        ctx.fillRect(this.x + 15, this.y + 20, 12, 10);
+
+        ctx.fillStyle = "#ffffff";
+        for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(this.x + (i * 12), this.y + 60);
+            ctx.lineTo(this.x + (i * 12) + 6, this.y + 48);
+            ctx.lineTo(this.x + (i * 12) + 12, this.y + 60);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+}
+
+class Hazard {
+    constructor(x, y, type, color, isRunner = false, obstacleShape = 'low') {
+        this.x = x;
+        this.y = y;
+        this.radius = 18;
+        this.isRunner = isRunner;
+        this.vx = isRunner ? -runnerSpeed : - (Math.random() * 4 + 3);
+        this.vy = isRunner ? 0 : - (Math.random() * 3 + 2);
+        this.color = color;
+        this.type = type;
+        this.active = true;
+        this.shape = obstacleShape;
+        this.width = this.shape === 'wide' ? 50 : 30;
+        this.height = this.shape === 'high' ? 70 : 35;
+    }
+
+    update() {
+        if (!this.isRunner) {
+            this.vy += GRAVITY * 0.45;
+        }
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (!this.isRunner && this.y >= CANVAS_HEIGHT - 60 - this.radius) {
+            this.active = false;
+        }
+        if (this.x < -60) {
+            this.active = false;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
+
+        if (this.isRunner) {
+            if (this.shape === 'high') {
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(this.x + 5, this.y + 5, this.width - 10, 6);
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.height);
+                ctx.lineTo(this.x + this.width / 2, this.y);
+                ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.closePath();
+                ctx.fill();
+            }
+        } else {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+}
+
+const player = new Player();
+let currentLevelConfig = LEVELS[currentLevelIdx];
+let boss = new Boss(currentLevelConfig);
+let hazards = [];
+
+function spawnHazard(x, y, isRunner = false) {
+    const shapes = ['low', 'high', 'wide'];
+    const chosenShape = isRunner ? shapes[Math.floor(Math.random() * shapes.length)] : 'low';
+    
+    let finalY = y;
+    if (isRunner && chosenShape === 'high') {
+        finalY = CANVAS_HEIGHT - 165;
+    } else if (isRunner) {
+        finalY = CANVAS_HEIGHT - 60 - 35;
+    }
+
+    hazards.push(new Hazard(x, finalY, currentLevelConfig.hazardType, currentLevelConfig.accent, isRunner, chosenShape));
+}
+
+function initAmbientParticles() {
+    ambientParticles = [];
+    for (let i = 0; i < 40; i++) {
+        ambientParticles.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: Math.random() * CANVAS_HEIGHT,
+            size: Math.random() * 3 + 1,
+            speedY: -(Math.random() * 1.5 + 0.5),
+            opacity: Math.random()
+        });
+    }
+}
+
+function prepareLevel(index) {
+    if (countdownTimer) clearInterval(countdownTimer);
+
+    currentLevelIdx = index;
+    currentLevelConfig = LEVELS[currentLevelIdx];
+
+    document.getElementById('level-title').innerText = currentLevelConfig.name;
+    document.getElementById('boss-name').innerText = currentLevelConfig.bossName;
+    document.getElementById('boss-hud').classList.remove('active');
+
+    boss = new Boss(currentLevelConfig);
+    hazards = [];
+    player.x = 100;
+    player.vx = 0;
+    player.vy = 0;
+    player.hp = 100;
+    distanceToBoss = 1000;
+    initAmbientParticles();
+
+    startCountdownSequence();
+}
+
+function startCountdownSequence() {
+    gamePhase = 'COUNTDOWN';
+    const countdownOverlay = document.getElementById('countdown-overlay');
+    const countdownText = document.getElementById('countdown-text');
+    const countdownSubtext = document.getElementById('countdown-subtext');
+
+    countdownOverlay.classList.add('active');
+    
+    let count = 3;
+    countdownText.innerText = count;
+    countdownSubtext.innerText = currentLevelConfig.name.toUpperCase();
+
+    countdownTimer = setInterval(() => {
+        count--;
+        if (count > 0) {
+            countdownText.innerText = count;
+        } else if (count === 0) {
+            countdownText.innerText = "RUN!";
+            countdownSubtext.innerText = "SURVIVE THE HAZARDS";
+        } else {
+            clearInterval(countdownTimer);
+            countdownOverlay.classList.remove('active');
+            gamePhase = 'RUNNER';
+            runnerGracePeriod = 120;
+        }
+    }, 1000);
+}
+
+function checkAABB(rect1, rect2) {
+    return (
+        rect1.x < rect2.x + rect2.width &&
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y
+    );
+}
+
+function renderEnvironment() {
+    globalTime += 0.02;
+
+    let gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    gradient.addColorStop(0, currentLevelConfig.bgTop);
+    gradient.addColorStop(1, currentLevelConfig.bgBottom);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.beginPath();
+    ctx.moveTo(0, CANVAS_HEIGHT - 60);
+    for (let i = 0; i <= CANVAS_WIDTH; i += 60) {
+        let h = Math.sin((i + globalTime * 20) * 0.008) * 40 + 120;
+        ctx.lineTo(i, CANVAS_HEIGHT - 60 - h);
+    }
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 60);
+    ctx.fill();
+
+    ctx.fillStyle = currentLevelConfig.envParticles;
+    ambientParticles.forEach(p => {
+        if (gamePhase === 'RUNNER') p.x -= 2.5;
+        p.y += p.speedY;
+        if (p.x < 0) p.x = CANVAS_WIDTH;
+        if (p.y < 0) p.y = CANVAS_HEIGHT;
+        ctx.globalAlpha = p.opacity;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    ctx.globalAlpha = 1.0;
+
+    ctx.fillStyle = "#0c1017";
+    ctx.fillRect(0, CANVAS_HEIGHT - 60, CANVAS_WIDTH, 60);
+
+    ctx.fillStyle = currentLevelConfig.accent;
+    ctx.shadowColor = currentLevelConfig.accent;
+    ctx.shadowBlur = 10;
+    ctx.fillRect(0, CANVAS_HEIGHT - 60, CANVAS_WIDTH, 3);
+    ctx.shadowBlur = 0;
+}
+
+function updateUI() {
+    const playerHpPct = Math.max(0, (player.hp / player.maxHp) * 100);
+    document.getElementById('player-health').style.width = playerHpPct + '%';
+
+    const bossHpPct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+    document.getElementById('boss-health').style.width = bossHpPct + '%';
+
+    if (gamePhase === 'RUNNER' || gamePhase === 'COUNTDOWN') {
+        document.getElementById('distance-hud').innerText = `DISTANCE TO APEX: ${Math.max(0, Math.floor(distanceToBoss))}m`;
+    } else if (gamePhase === 'BOSS') {
+        document.getElementById('distance-hud').innerText = `ENGAGED WITH APEX TARGET`;
+    }
+}
+
+function gameLoop() {
+    renderEnvironment();
+
+    if (gamePhase === 'COUNTDOWN') {
+        player.draw();
+        updateUI();
+    } else if (gamePhase === 'RUNNER' || gamePhase === 'BOSS') {
+        player.update();
+        player.draw();
+    }
+
+    if (gamePhase === 'RUNNER') {
+        distanceToBoss -= 1.8;
+
+        if (runnerGracePeriod > 0) {
+            runnerGracePeriod--;
+        } else if (Math.random() < 0.055) {
+            spawnHazard(CANVAS_WIDTH + 40, 0, true);
+        }
+
+        if (distanceToBoss <= 0) {
+            gamePhase = 'BOSS';
+            document.getElementById('boss-hud').classList.add('active');
+            hazards = [];
+        }
+    } else if (gamePhase === 'BOSS') {
+        if (boss.hp > 0) {
+            boss.update(player);
+            boss.draw();
+
+            if (player.isAttacking && checkAABB(player.attackBox, boss)) {
+                boss.hp -= 3.5;
+                if (boss.hp <= 0) {
+                    if (currentLevelIdx < LEVELS.length - 1) {
+                        alert("SECTOR CLEARED! Advancing to next zone...");
+                        prepareLevel(currentLevelIdx + 1);
+                    } else {
+                        alert("CAMPAIGN COMPLETE! You have eradicated all 5 Apex Dinosaurs!");
+                        gamePhase = 'START';
+                        document.getElementById('start-screen').classList.remove('hidden');
+                    }
+                }
+            }
+
+            if (checkAABB(player, boss)) {
+                player.hp -= 0.6;
+            }
+        }
+    }
+
+    for (let i = hazards.length - 1; i >= 0; i--) {
+        const h = hazards[i];
+        h.update();
+        h.draw();
+
+        if (h.active) {
+            let hit = false;
+            if (h.isRunner) {
+                hit = checkAABB(player, { x: h.x, y: h.y, width: h.width, height: h.height });
+            } else {
+                hit = checkAABB(player, { x: h.x - h.radius, y: h.y - h.radius, width: h.radius * 2, height: h.radius * 2 });
+            }
+
+            if (hit) {
+                player.hp -= 12;
+                h.active = false;
+            }
+        }
+
+        if (!h.active) {
+            hazards.splice(i, 1);
+        }
+    }
+
+    if (gamePhase === 'RUNNER' || gamePhase === 'BOSS') {
+        updateUI();
+
+        if (player.hp <= 0) {
+            alert("INTEGRITY CRITICAL! Mission Failed. Restarting Level...");
+            prepareLevel(currentLevelIdx);
+        }
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+document.getElementById('btn-start').addEventListener('click', () => {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('intro-screen').classList.remove('hidden');
+    gamePhase = 'INTRO';
+});
+
+document.getElementById('btn-begin').addEventListener('click', () => {
+    document.getElementById('intro-screen').classList.add('hidden');
+    prepareLevel(0);
+});
+
+resizeGame();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
